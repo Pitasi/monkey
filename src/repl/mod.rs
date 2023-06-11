@@ -1,11 +1,14 @@
 use std::io::{self, BufRead, Write};
 
-use crate::{lexer::Lexer, token::Token};
+use crate::{
+    ast::Node, evaluator::eval, lexer::Lexer, object::environ::Environment, parser::Parser,
+};
 
 const PROMPT: &str = ">> ";
 
 pub fn start() {
     let stdin = io::stdin();
+    let mut environ = Environment::new();
 
     loop {
         print!("{}", PROMPT);
@@ -22,12 +25,10 @@ pub fn start() {
             break;
         }
 
-        let mut l = Lexer::new(&line);
-        // TODO: Lexer could return an iterator
-        let mut tok = l.next_token();
-        while tok != Token::EOF {
-            println!("{:?}", tok);
-            tok = l.next_token();
-        }
+        let l = Lexer::new(&line);
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        let res = eval(&Node::Program(program), &mut environ);
+        println!("{}", res);
     }
 }

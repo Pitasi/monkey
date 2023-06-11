@@ -37,3 +37,35 @@ pub enum Token {
     ELSE,
     RETURN,
 }
+
+impl Token {
+    pub fn literal(&self) -> &str {
+        match self {
+            Token::ILLEGAL(v) | Token::IDENT(v) | Token::INT(v) => v,
+            Token::EOF => "",
+            Token::ASSIGN => "=",
+            Token::PLUS => "+",
+            Token::MINUS => "-",
+            Token::BANG => "!",
+            Token::ASTERISK => "*",
+            Token::SLASH => "/",
+            Token::LT => "<",
+            Token::GT => ">",
+            Token::EQ => "==",
+            Token::NotEq => "!=",
+            Token::COMMA => ",",
+            Token::SEMICOLON => ";",
+            Token::LPAREN => "(",
+            Token::RPAREN => ")",
+            Token::LBRACE => "{",
+            Token::RBRACE => "}",
+            Token::FUNCTION => "function",
+            Token::LET => "let",
+            Token::TRUE => "true",
+            Token::FALSE => "false",
+            Token::IF => "if",
+            Token::ELSE => "else",
+            Token::RETURN => "return",
+        }
+    }
+}
