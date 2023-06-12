@@ -18,7 +18,7 @@ pub enum Node {
     Expression(Expression),
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Statement {
     LetStatement(LetStatement),
     ReturnStatement(ReturnStatement),
@@ -47,7 +47,7 @@ impl Display for Statement {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Expression {
     InfixExpression(InfixExpression),
     IntegerLiteral(IntegerLiteral),
@@ -115,7 +115,7 @@ impl Display for Program {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct LetStatement {
     pub token: Rc<Token>,
     pub name: Identifier,
@@ -140,7 +140,7 @@ impl Display for LetStatement {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Identifier {
     pub token: Rc<Token>,
 }
@@ -157,7 +157,7 @@ impl NodeTrait for Identifier {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ReturnStatement {
     pub token: Rc<Token>,
     pub return_value: Option<Expression>,
@@ -178,7 +178,7 @@ impl Display for ReturnStatement {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ExpressionStatement {
     pub token: Rc<Token>,
     pub expression: Expression,
@@ -196,7 +196,7 @@ impl NodeTrait for ExpressionStatement {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct IntegerLiteral {
     pub token: Rc<Token>,
     pub value: i64,
@@ -214,7 +214,7 @@ impl NodeTrait for IntegerLiteral {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct PrefixExpression {
     pub token: Rc<Token>,
     pub operator: String,
@@ -233,7 +233,7 @@ impl Display for PrefixExpression {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct InfixExpression {
     pub token: Rc<Token>,
     pub left: Box<Expression>,
@@ -253,7 +253,7 @@ impl Display for InfixExpression {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Boolean {
     pub token: Rc<Token>,
     pub value: bool,
@@ -271,7 +271,7 @@ impl Display for Boolean {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct IfExpression {
     pub token: Rc<Token>,
     pub condition: Box<Expression>,
@@ -295,7 +295,7 @@ impl Display for IfExpression {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct BlockStatement {
     pub token: Rc<Token>,
     pub statements: Vec<Statement>,
@@ -316,7 +316,7 @@ impl Display for BlockStatement {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct FunctionLiteral {
     pub token: Rc<Token>,
     pub parameters: Vec<Identifier>,
@@ -344,7 +344,7 @@ impl Display for FunctionLiteral {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct CallExpression {
     pub token: Rc<Token>,
     pub function: Box<Expression>,

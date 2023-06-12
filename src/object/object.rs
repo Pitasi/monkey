@@ -1,6 +1,8 @@
 use std::fmt::Display;
 
-use crate::ast::AsAny;
+use crate::ast::{AsAny, BlockStatement, Identifier};
+
+use super::environ::Environment;
 
 #[derive(Debug)]
 pub enum ObjectType {
@@ -9,6 +11,7 @@ pub enum ObjectType {
     Boolean,
     Null,
     Error,
+    Function,
 }
 
 impl Display for ObjectType {
@@ -19,6 +22,7 @@ impl Display for ObjectType {
             ObjectType::Boolean => write!(f, "BOOLEAN"),
             ObjectType::Null => write!(f, "NULL"),
             ObjectType::Error => write!(f, "ERROR"),
+            ObjectType::Function => write!(f, "FUNCTION"),
         }
     }
 }
@@ -30,6 +34,7 @@ pub enum Object {
     Null(Null),
     Return(ReturnValue),
     Error(Error),
+    Function(Function),
 }
 
 impl Display for Object {
@@ -40,6 +45,7 @@ impl Display for Object {
             Object::Null(_) => write!(f, "null"),
             Object::Return(r) => write!(f, "{}", r),
             Object::Error(e) => write!(f, "{}", e),
+            Object::Function(fun) => write!(f, "{}", fun.inspect()),
         }
     }
 }
@@ -51,6 +57,7 @@ pub fn obj_type(obj: &Object) -> ObjectType {
         Object::Null(_) => ObjectType::Null,
         Object::Return(_) => ObjectType::Return,
         Object::Error(_) => ObjectType::Error,
+        Object::Function(_) => ObjectType::Function,
     }
 }
 
@@ -141,5 +148,30 @@ impl ObjectTrait for Error {
 
     fn inspect(&self) -> String {
         format!("{}", self.message)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Function {
+    pub parameters: Vec<Identifier>,
+    pub body: BlockStatement,
+    pub env: Environment,
+}
+
+impl ObjectTrait for Function {
+    fn obj_type(&self) -> ObjectType {
+        ObjectType::Function
+    }
+
+    fn inspect(&self) -> String {
+        format!(
+            "fn({}) {{\n{}\n}}",
+            self.parameters
+                .iter()
+                .map(|p| p.token.literal())
+                .collect::<Vec<_>>()
+                .join(", "),
+            self.body
+        )
     }
 }

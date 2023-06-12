@@ -1,10 +1,11 @@
 use crate::{
     ast::{
-        Expression, Identifier, IfExpression, InfixExpression, Node, PrefixExpression, Statement,
+        CallExpression, Expression, FunctionLiteral, Identifier, IfExpression, InfixExpression,
+        Node, PrefixExpression, Statement,
     },
     object::{
         environ::Environment,
-        object::{obj_type, Boolean, Error, Integer, Null, Object, ReturnValue},
+        object::{obj_type, Boolean, Error, Function, Integer, Null, Object, ReturnValue},
     },
 };
 
@@ -35,7 +36,8 @@ pub fn eval_expression(exp: &Expression, environ: &mut Environment) -> Object {
         Expression::InfixExpression(x) => eval_infix_expression(x, environ),
         Expression::IfExpression(x) => eval_if_expression(x, environ),
         Expression::Identifier(x) => eval_identifier(x, environ),
-        _ => panic!("unknown expression type: {}", exp.token_literal()),
+        Expression::FunctionLiteral(x) => eval_function_literal(x, environ),
+        Expression::CallExpression(x) => eval_call_expression(x, environ),
     }
 }
 
@@ -125,6 +127,64 @@ pub fn eval_identifier(exp: &Identifier, environ: &mut Environment) -> Object {
             message: format!("identifier not found: {}", exp.token.literal()),
         }),
     }
+}
+
+pub fn eval_function_literal(exp: &FunctionLiteral, environ: &mut Environment) -> Object {
+    Object::Function(Function {
+        parameters: exp.parameters.clone(),
+        body: exp.body.clone(),
+        env: environ.clone(),
+    })
+}
+
+pub fn eval_call_expression(exp: &CallExpression, environ: &mut Environment) -> Object {
+    let f = eval_expression(&*exp.function, environ);
+    match f {
+        Object::Error(_) => return f,
+        Object::Function(f) => {
+            if f.parameters.len() != exp.arguments.len() {
+                return Object::Error(Error {
+                    message: format!(
+                        "wrong number of arguments: want={}, got={}",
+                        f.parameters.len(),
+                        exp.arguments.len()
+                    ),
+                });
+            }
+
+            let args = eval_expressions(&exp.arguments, environ);
+            match args {
+                Err(err) => return err,
+                Ok(args) => {
+                    let mut local_env = Environment::new_enclosed_environment(f.env.clone());
+                    for (i, param) in f.parameters.iter().enumerate() {
+                        local_env.set(param.token.literal().to_string(), args[i].clone());
+                    }
+
+                    eval_statement(&Statement::BlockStatement(f.body), &mut local_env)
+                }
+            }
+        }
+        _ => Object::Error(Error {
+            message: format!("not a function: {}", obj_type(&f)),
+        }),
+    }
+}
+
+pub fn eval_expressions(
+    exps: &[Expression],
+    environ: &mut Environment,
+) -> Result<Vec<Object>, Object> {
+    let mut res = vec![];
+    for exp in exps.iter() {
+        let val = eval_expression(exp, environ);
+        match val {
+            Object::Error(_) => return Err(val),
+            _ => (),
+        };
+        res.push(val);
+    }
+    Ok(res)
 }
 
 pub fn eval_statement(stmt: &Statement, environ: &mut Environment) -> Object {
@@ -305,6 +365,44 @@ if (10 > 1) {
             a + b;
             ",
                 15,
+            ),
+        ];
+        for (input, expected) in inputs {
+            let evaluated = test_eval(input);
+            check_integer_object(&evaluated, expected, input);
+        }
+    }
+
+    #[test]
+    fn test_function_object() {
+        let input = "fn(x) { x + 2; };";
+        let evaluated = test_eval(input);
+        match evaluated {
+            Object::Function(f) => {
+                assert_eq!(f.parameters.len(), 1);
+                assert_eq!(f.parameters[0].to_string(), "x");
+                assert_eq!(f.body.to_string(), "(x + 2)\n");
+            }
+            _ => assert!(false, "object is not a function, input was: {}", input),
+        }
+    }
+
+    #[test]
+    fn test_function_application() {
+        let inputs = [
+            ("let identity = fn(x) { x; }; identity(5);", 5),
+            ("let identity = fn(x) { return x; }; identity(5);", 5),
+            ("let double = fn(x) { x * 2; }; double(5);", 10),
+            ("let add = fn(x, y) { x + y; }; add(5, 5);", 10),
+            ("let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));", 20),
+            ("fn(x) { x; }(5)", 5),
+            (
+                "
+            let newAdder = fn(x) { fn(y) { x + y }; };
+            let addTwo = newAdder(2);
+            addTwo(2);
+             ",
+                4,
             ),
         ];
         for (input, expected) in inputs {
