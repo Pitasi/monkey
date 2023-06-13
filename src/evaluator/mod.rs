@@ -1,12 +1,13 @@
 use crate::{
     ast::{
-        CallExpression, Expression, FunctionLiteral, Identifier, IfExpression, InfixExpression,
-        Node, PrefixExpression, Statement,
+        ArrayLiteral, CallExpression, Expression, FunctionLiteral, Identifier, IfExpression,
+        IndexExpression, InfixExpression, Node, PrefixExpression, Statement,
     },
     object::{
         environ::Environment,
         object::{
-            obj_type, Boolean, Error, Function, Integer, Null, Object, ReturnValue, StringObj,
+            obj_type, Array, Boolean, Error, Function, Integer, Null, Object, ReturnValue,
+            StringObj,
         },
     },
 };
@@ -43,6 +44,8 @@ pub fn eval_expression(exp: &Expression, environ: &mut Environment) -> Object {
         Expression::Identifier(x) => eval_identifier(x, environ),
         Expression::FunctionLiteral(x) => eval_function_literal(x, environ),
         Expression::CallExpression(x) => eval_call_expression(x, environ),
+        Expression::ArrayLiteral(x) => eval_array_literal(x, environ),
+        Expression::IndexExpression(x) => eval_index_expression(x, environ),
     }
 }
 
@@ -186,6 +189,35 @@ pub fn eval_call_expression(exp: &CallExpression, environ: &mut Environment) -> 
     }
 }
 
+pub fn eval_array_literal(exp: &ArrayLiteral, environ: &mut Environment) -> Object {
+    let elements = eval_expressions(&exp.elements, environ);
+    match elements {
+        Err(err) => err,
+        Ok(elements) => Object::Array(Array { elements }),
+    }
+}
+
+pub fn eval_index_expression(exp: &IndexExpression, environ: &mut Environment) -> Object {
+    let left = eval_expression(&*exp.left, environ);
+    let index = eval_expression(&*exp.index, environ);
+    match left {
+        Object::Array(a) => match index {
+            Object::Integer(Integer { value: i }) => {
+                if i < 0 || i >= a.elements.len() as i64 {
+                    return Object::Null(Null {});
+                }
+                a.elements[i as usize].clone()
+            }
+            _ => Object::Error(Error {
+                message: format!("index operator not supported: {}", obj_type(&index)),
+            }),
+        },
+        _ => Object::Error(Error {
+            message: format!("index operator not supported: {}", obj_type(&left)),
+        }),
+    }
+}
+
 pub fn eval_expressions(
     exps: &[Expression],
     environ: &mut Environment,
@@ -307,6 +339,8 @@ mod tests {
             ("if (5) { 10 } else { 0 }", 10),
             ("len(\"\")", 0),
             ("len(\"foo\")", 3),
+            ("first([1,2,3])", 1),
+            ("last([1,2,3])", 3),
         ];
         for (input, expected) in inputs {
             let evaluated = test_eval(input);
@@ -437,6 +471,65 @@ if (10 > 1) {
         }
     }
 
+    #[test]
+    fn test_closures() {
+        let input = "
+            let newAdder = fn(x) {
+                fn(y) { x + y };
+            };
+            let addTwo = newAdder(2);
+            addTwo(2);
+            ";
+        let evaluated = test_eval(input);
+        check_integer_object(&evaluated, 4, input);
+    }
+
+    #[test]
+    fn test_string_concatenation() {
+        let input = "\"Hello\" + \" \" + \"World!\"";
+        let evaluated = test_eval(input);
+        check_string_object(&evaluated, "Hello World!", input);
+    }
+
+    #[test]
+    fn test_builtin_functions() {
+        let inputs = [
+            ("len(\"\")", 0),
+            ("len(\"four\")", 4),
+            ("len(\"hello world\")", 11),
+        ];
+        for (input, expected) in inputs {
+            let evaluated = test_eval(input);
+            check_integer_object(&evaluated, expected, input);
+        }
+    }
+
+    #[test]
+    fn test_array_literals() {
+        let input = "[1, 2 * 2, 3 + 3]";
+        let evaluated = test_eval(input);
+        check_array_object(&evaluated, vec![1, 4, 6], input);
+    }
+
+    #[test]
+    fn test_array_index_expression() {
+        let input = "[1, 2 * 2, 3 + 3][1]";
+        let evaluated = test_eval(input);
+        check_integer_object(&evaluated, 4, input);
+    }
+
+    #[test]
+    fn test_eval_array_result() {
+        let inputs = [
+            ("rest([1,2,3])", vec![2, 3]),
+            ("push([1,2,3], 4)", vec![1, 2, 3, 4]),
+        ];
+        for (input, expected) in inputs {
+            let evaluated = test_eval(input);
+            check_array_object(&evaluated, expected, input);
+        }
+    }
+
     fn test_eval(input: &str) -> Object {
         let l = Lexer::new(input);
         let node = Parser::new(l).parse_program();
@@ -487,6 +580,18 @@ if (10 > 1) {
         match obj {
             Object::Error(err) => assert_eq!(err.message, expected, "input was: {}", input),
             _ => assert!(false, "object is not error, input was: {}", input),
+        }
+    }
+
+    fn check_array_object(obj: &Object, expected: Vec<i64>, input: &str) {
+        match obj {
+            Object::Array(arr) => {
+                assert_eq!(arr.elements.len(), expected.len());
+                for (i, el) in arr.elements.iter().enumerate() {
+                    check_integer_object(el, expected[i], input);
+                }
+            }
+            _ => assert!(false, "object is not an array, input was: {}", input),
         }
     }
 }

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::object::{obj_type, Builtin, Error, Integer, Object};
+use super::object::{obj_type, Array, Builtin, Error, Integer, Null, Object};
 
 #[derive(Debug, Clone)]
 pub struct Environment {
@@ -64,9 +64,112 @@ fn get_builtin(name: &str) -> Option<&'static Object> {
                     Object::String(s) => Object::Integer(Integer {
                         value: s.value.len() as i64,
                     }),
+                    Object::Array(a) => Object::Integer(Integer {
+                        value: a.elements.len() as i64,
+                    }),
                     _ => Object::Error(Error {
                         message: format!(
                             "argument to `len` not supported, got {}",
+                            obj_type(&args[0])
+                        ),
+                    }),
+                }
+            },
+        })),
+        "first" => Some(&Object::Builtin(Builtin {
+            func: |args| {
+                if args.len() != 1 {
+                    return Object::Error(Error {
+                        message: format!("wrong number of arguments. got={}, want=1", args.len()),
+                    });
+                }
+
+                match &args[0] {
+                    Object::Array(a) => {
+                        if a.elements.len() > 0 {
+                            return a.elements[0].clone();
+                        }
+                        Object::Null(Null {})
+                    }
+                    _ => Object::Error(Error {
+                        message: format!(
+                            "argument to `first` must be ARRAY, got {}",
+                            obj_type(&args[0])
+                        ),
+                    }),
+                }
+            },
+        })),
+        "last" => Some(&Object::Builtin(Builtin {
+            func: |args| {
+                if args.len() != 1 {
+                    return Object::Error(Error {
+                        message: format!("wrong number of arguments. got={}, want=1", args.len()),
+                    });
+                }
+
+                match &args[0] {
+                    Object::Array(a) => {
+                        if a.elements.len() > 0 {
+                            return a.elements.last().unwrap().clone();
+                        }
+                        Object::Null(Null {})
+                    }
+                    _ => Object::Error(Error {
+                        message: format!(
+                            "argument to `last` must be ARRAY, got {}",
+                            obj_type(&args[0])
+                        ),
+                    }),
+                }
+            },
+        })),
+        "rest" => Some(&Object::Builtin(Builtin {
+            func: |args| {
+                if args.len() != 1 {
+                    return Object::Error(Error {
+                        message: format!("wrong number of arguments. got={}, want=1", args.len()),
+                    });
+                }
+
+                match &args[0] {
+                    Object::Array(a) => {
+                        if a.elements.len() == 0 {
+                            return Object::Null(Null {});
+                        }
+                        let new_elements = a.elements[1..].to_vec();
+                        Object::Array(Array {
+                            elements: new_elements,
+                        })
+                    }
+                    _ => Object::Error(Error {
+                        message: format!(
+                            "argument to `last` must be ARRAY, got {}",
+                            obj_type(&args[0])
+                        ),
+                    }),
+                }
+            },
+        })),
+        "push" => Some(&Object::Builtin(Builtin {
+            func: |args| {
+                if args.len() != 2 {
+                    return Object::Error(Error {
+                        message: format!("wrong number of arguments. got={}, want=2", args.len()),
+                    });
+                }
+
+                match &args[0] {
+                    Object::Array(a) => {
+                        let mut new_elements = a.elements.clone();
+                        new_elements.push(args[1].clone());
+                        Object::Array(Array {
+                            elements: new_elements,
+                        })
+                    }
+                    _ => Object::Error(Error {
+                        message: format!(
+                            "argument to `last` must be ARRAY, got {}",
                             obj_type(&args[0])
                         ),
                     }),

@@ -58,6 +58,8 @@ pub enum Expression {
     FunctionLiteral(FunctionLiteral),
     CallExpression(CallExpression),
     StringLiteral(StringLiteral),
+    ArrayLiteral(ArrayLiteral),
+    IndexExpression(IndexExpression),
 }
 
 impl Expression {
@@ -72,6 +74,8 @@ impl Expression {
             Expression::FunctionLiteral(x) => x.token_literal(),
             Expression::CallExpression(x) => x.token_literal(),
             Expression::StringLiteral(x) => x.token_literal(),
+            Expression::ArrayLiteral(x) => x.token_literal(),
+            Expression::IndexExpression(x) => x.token_literal(),
         }
     }
 }
@@ -88,6 +92,8 @@ impl Display for Expression {
             Expression::FunctionLiteral(x) => write!(f, "{}", x),
             Expression::CallExpression(x) => write!(f, "{}", x),
             Expression::StringLiteral(x) => write!(f, "{}", x),
+            Expression::ArrayLiteral(x) => write!(f, "{}", x),
+            Expression::IndexExpression(x) => write!(f, "{}", x),
         }
     }
 }
@@ -390,5 +396,50 @@ impl NodeTrait for StringLiteral {
 impl Display for StringLiteral {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "\"{}\"", self.value)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ArrayLiteral {
+    pub token: Rc<Token>,
+    pub elements: Vec<Expression>,
+}
+
+impl NodeTrait for ArrayLiteral {
+    fn token_literal(&self) -> &str {
+        self.token.literal()
+    }
+}
+
+impl Display for ArrayLiteral {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "[{}]",
+            self.elements
+                .iter()
+                .map(|e| e.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct IndexExpression {
+    pub token: Rc<Token>,
+    pub left: Box<Expression>,
+    pub index: Box<Expression>,
+}
+
+impl NodeTrait for IndexExpression {
+    fn token_literal(&self) -> &str {
+        self.token.literal()
+    }
+}
+
+impl Display for IndexExpression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}[{}])", self.left, self.index)
     }
 }

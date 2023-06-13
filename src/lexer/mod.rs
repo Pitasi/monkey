@@ -32,6 +32,8 @@ impl Lexer {
             (')', _) => Token::RPAREN,
             ('{', _) => Token::LBRACE,
             ('}', _) => Token::RBRACE,
+            ('[', _) => Token::LBRACKET,
+            (']', _) => Token::RBRACKET,
             (',', _) => Token::COMMA,
             ('+', _) => Token::PLUS,
             ('-', _) => Token::MINUS,
@@ -163,6 +165,7 @@ if (5 < 10) {
 
 \"foobar\"
 \"foo bar\"
+[1, 2]
 ";
 
     let tests = [
@@ -240,6 +243,11 @@ if (5 < 10) {
         Token::SEMICOLON,
         Token::STRING("foobar".to_string()),
         Token::STRING("foo bar".to_string()),
+        Token::LBRACKET,
+        Token::INT("1".to_string()),
+        Token::COMMA,
+        Token::INT("2".to_string()),
+        Token::RBRACKET,
         Token::EOF,
     ];
 

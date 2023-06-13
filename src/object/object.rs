@@ -14,6 +14,7 @@ pub enum ObjectType {
     Function,
     String,
     Builtin,
+    Array,
 }
 
 impl Display for ObjectType {
@@ -27,6 +28,7 @@ impl Display for ObjectType {
             ObjectType::Function => write!(f, "FUNCTION"),
             ObjectType::String => write!(f, "STRING"),
             ObjectType::Builtin => write!(f, "BUILTIN"),
+            ObjectType::Array => write!(f, "ARRAY"),
         }
     }
 }
@@ -41,6 +43,7 @@ pub enum Object {
     Function(Function),
     String(StringObj),
     Builtin(Builtin),
+    Array(Array),
 }
 
 impl Display for Object {
@@ -54,6 +57,7 @@ impl Display for Object {
             Object::Function(fun) => write!(f, "{}", fun.inspect()),
             Object::String(s) => write!(f, "{}", s.inspect()),
             Object::Builtin(b) => write!(f, "{}", b.inspect()),
+            Object::Array(a) => write!(f, "{}", a.inspect()),
         }
     }
 }
@@ -68,6 +72,7 @@ pub fn obj_type(obj: &Object) -> ObjectType {
         Object::Function(_) => ObjectType::Function,
         Object::String(_) => ObjectType::String,
         Object::Builtin(_) => ObjectType::Builtin,
+        Object::Array(_) => ObjectType::Array,
     }
 }
 
@@ -213,5 +218,27 @@ impl ObjectTrait for Builtin {
 
     fn inspect(&self) -> String {
         "builtin function".to_string()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Array {
+    pub elements: Vec<Object>,
+}
+
+impl ObjectTrait for Array {
+    fn obj_type(&self) -> ObjectType {
+        ObjectType::Array
+    }
+
+    fn inspect(&self) -> String {
+        format!(
+            "[{}]",
+            self.elements
+                .iter()
+                .map(|e| e.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     }
 }
