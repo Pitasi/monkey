@@ -57,6 +57,7 @@ pub enum Expression {
     Identifier(Identifier),
     FunctionLiteral(FunctionLiteral),
     CallExpression(CallExpression),
+    StringLiteral(StringLiteral),
 }
 
 impl Expression {
@@ -70,6 +71,7 @@ impl Expression {
             Expression::Identifier(x) => x.token_literal(),
             Expression::FunctionLiteral(x) => x.token_literal(),
             Expression::CallExpression(x) => x.token_literal(),
+            Expression::StringLiteral(x) => x.token_literal(),
         }
     }
 }
@@ -85,6 +87,7 @@ impl Display for Expression {
             Expression::Identifier(x) => write!(f, "{}", x),
             Expression::FunctionLiteral(x) => write!(f, "{}", x),
             Expression::CallExpression(x) => write!(f, "{}", x),
+            Expression::StringLiteral(x) => write!(f, "{}", x),
         }
     }
 }
@@ -369,5 +372,23 @@ impl Display for CallExpression {
                 .collect::<Vec<_>>()
                 .join(", ")
         )
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct StringLiteral {
+    pub token: Rc<Token>,
+    pub value: String,
+}
+
+impl NodeTrait for StringLiteral {
+    fn token_literal(&self) -> &str {
+        self.token.literal()
+    }
+}
+
+impl Display for StringLiteral {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "\"{}\"", self.value)
     }
 }

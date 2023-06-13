@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::object::Object;
+use super::object::{obj_type, Builtin, Error, Integer, Object};
 
 #[derive(Debug, Clone)]
 pub struct Environment {
@@ -24,15 +24,56 @@ impl Environment {
     }
 
     pub fn get(&self, name: &str) -> Option<&Object> {
-        match (&self.outer, self.store.get(name)) {
-            (_, Some(obj)) => Some(obj),
-            (Some(outer), None) => outer.get(name),
-            _ => None,
+        let mut v = self.store.get(name);
+        if v.is_some() {
+            return v;
         }
+
+        v = match &self.outer {
+            Some(outer) => outer.get(name),
+            None => None,
+        };
+        if v.is_some() {
+            return v;
+        }
+
+        v = get_builtin(name);
+        if v.is_some() {
+            return v;
+        }
+
+        None
     }
 
     pub fn set(&mut self, name: String, value: Object) {
         self.store.insert(name, value);
+    }
+}
+
+fn get_builtin(name: &str) -> Option<&'static Object> {
+    match name {
+        "len" => Some(&Object::Builtin(Builtin {
+            func: |args| {
+                if args.len() != 1 {
+                    return Object::Error(Error {
+                        message: format!("wrong number of arguments. got={}, want=1", args.len()),
+                    });
+                }
+
+                match &args[0] {
+                    Object::String(s) => Object::Integer(Integer {
+                        value: s.value.len() as i64,
+                    }),
+                    _ => Object::Error(Error {
+                        message: format!(
+                            "argument to `len` not supported, got {}",
+                            obj_type(&args[0])
+                        ),
+                    }),
+                }
+            },
+        })),
+        _ => None,
     }
 }
 

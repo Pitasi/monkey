@@ -45,6 +45,10 @@ impl Lexer {
             ('<', _) => Token::LT,
             ('>', _) => Token::GT,
             ('\0', _) => Token::EOF,
+            ('"', _) => {
+                let literal = self.read_string();
+                Token::STRING(literal)
+            }
             _ => {
                 if is_letter(self.ch) {
                     let ident = self.read_identifier();
@@ -91,6 +95,15 @@ impl Lexer {
     fn read_identifier(self: &mut Self) -> String {
         let start_position = self.position;
         while is_letter(self.ch) {
+            self.read_char();
+        }
+        self.input[start_position..self.position].iter().collect()
+    }
+
+    fn read_string(self: &mut Self) -> String {
+        self.read_char();
+        let start_position = self.position;
+        while self.ch != '"' || self.ch == '\0' {
             self.read_char();
         }
         self.input[start_position..self.position].iter().collect()
@@ -147,6 +160,9 @@ if (5 < 10) {
 
 10 == 10;
 10 != 9;
+
+\"foobar\"
+\"foo bar\"
 ";
 
     let tests = [
@@ -222,6 +238,8 @@ if (5 < 10) {
         Token::NotEq,
         Token::INT("9".to_string()),
         Token::SEMICOLON,
+        Token::STRING("foobar".to_string()),
+        Token::STRING("foo bar".to_string()),
         Token::EOF,
     ];
 

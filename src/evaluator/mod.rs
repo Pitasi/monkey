@@ -5,7 +5,9 @@ use crate::{
     },
     object::{
         environ::Environment,
-        object::{obj_type, Boolean, Error, Function, Integer, Null, Object, ReturnValue},
+        object::{
+            obj_type, Boolean, Error, Function, Integer, Null, Object, ReturnValue, StringObj,
+        },
     },
 };
 
@@ -32,6 +34,9 @@ pub fn eval_expression(exp: &Expression, environ: &mut Environment) -> Object {
     match exp {
         Expression::IntegerLiteral(x) => Object::Integer(Integer { value: x.value }),
         Expression::Boolean(x) => Object::Boolean(Boolean { value: x.value }),
+        Expression::StringLiteral(s) => Object::String(StringObj {
+            value: s.value.clone(),
+        }),
         Expression::PrefixExpression(x) => eval_prefix_expression(x, environ),
         Expression::InfixExpression(x) => eval_infix_expression(x, environ),
         Expression::IfExpression(x) => eval_if_expression(x, environ),
@@ -65,6 +70,9 @@ pub fn eval_infix_expression(exp: &InfixExpression, environ: &mut Environment) -
         (_, _, right @ Object::Error(_)) => right,
         ("+", Object::Integer(Integer { value: l }), Object::Integer(Integer { value: r })) => {
             Object::Integer(Integer { value: l + r })
+        }
+        ("+", Object::String(StringObj { value: l }), Object::String(StringObj { value: r })) => {
+            Object::String(StringObj { value: l + &r })
         }
         ("-", Object::Integer(Integer { value: l }), Object::Integer(Integer { value: r })) => {
             Object::Integer(Integer { value: l - r })
@@ -163,6 +171,13 @@ pub fn eval_call_expression(exp: &CallExpression, environ: &mut Environment) -> 
 
                     eval_statement(&Statement::BlockStatement(f.body), &mut local_env)
                 }
+            }
+        }
+        Object::Builtin(b) => {
+            let args = eval_expressions(&exp.arguments, environ);
+            match args {
+                Err(err) => return err,
+                Ok(args) => (b.func)(args),
             }
         }
         _ => Object::Error(Error {
@@ -290,6 +305,8 @@ mod tests {
             ("if (5 < 4) { 10 } else { 0 }", 0),
             ("if (5 > 4) { 10 } else { 0 }", 10),
             ("if (5) { 10 } else { 0 }", 10),
+            ("len(\"\")", 0),
+            ("len(\"foo\")", 3),
         ];
         for (input, expected) in inputs {
             let evaluated = test_eval(input);
@@ -303,6 +320,15 @@ mod tests {
         for input in inputs {
             let evaluated = test_eval(input);
             check_null_object(&evaluated);
+        }
+    }
+
+    #[test]
+    fn test_eval_string_result() {
+        let inputs = [("\"foobar\"", "foobar"), ("\"foo\" + \"bar\"", "foobar")];
+        for (input, expected) in inputs {
+            let evaluated = test_eval(input);
+            check_string_object(&evaluated, expected, input);
         }
     }
 
@@ -439,6 +465,21 @@ if (10 > 1) {
         match obj {
             Object::Null(_) => (),
             _ => panic!("object is not null"),
+        }
+    }
+
+    fn check_string_object(obj: &Object, expected: &str, input: &str) {
+        match obj {
+            Object::String(s) => assert_eq!(
+                s.value, expected,
+                "input was: {}, result was: {:?}",
+                input, obj
+            ),
+            _ => assert!(
+                false,
+                "object is not an integer, input was: {}, result was {:?}",
+                input, obj
+            ),
         }
     }
 

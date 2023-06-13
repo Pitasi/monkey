@@ -4,7 +4,7 @@ use crate::{
     ast::{
         BlockStatement, Boolean, CallExpression, Expression, ExpressionStatement, FunctionLiteral,
         Identifier, IfExpression, InfixExpression, IntegerLiteral, LetStatement, PrefixExpression,
-        Program, ReturnStatement, Statement,
+        Program, ReturnStatement, Statement, StringLiteral,
     },
     lexer::Lexer,
     token::Token,
@@ -170,6 +170,7 @@ impl Parser {
             Token::LPAREN => self.parse_grouped_expression(),
             Token::IF => self.parse_if_expression(),
             Token::FUNCTION => self.parse_function_expression(),
+            Token::STRING(_) => self.parse_string_literal_expression(),
             _ => None,
         }
     }
@@ -354,6 +355,12 @@ impl Parser {
             body,
             parameters,
         }))
+    }
+
+    fn parse_string_literal_expression(&mut self) -> Option<Expression> {
+        let token = self.cur_token.clone();
+        let value = token.literal().to_string();
+        Some(Expression::StringLiteral(StringLiteral { token, value }))
     }
 
     fn parse_function_parameters(&mut self) -> Option<Vec<Identifier>> {
@@ -675,6 +682,7 @@ return 838383;
         Int(i64),
         Ident(&'a str),
         Bool(bool),
+        String(&'a str),
     }
 
     fn check_literal_expression(exp: &Expression, expected_value: Lit) {
@@ -682,6 +690,10 @@ return 838383;
             Lit::Int(value) => check_integer_literal(exp, value),
             Lit::Ident(value) => check_identifier_literal(exp, value),
             Lit::Bool(value) => check_boolean_literal(exp, value),
+            Lit::String(s) => match exp {
+                Expression::StringLiteral(string) => assert_eq!(string.value, s),
+                _ => assert!(false),
+            },
         }
     }
 
@@ -732,6 +744,7 @@ return 838383;
                 "add(a + b + c * d / f + g)",
                 "add((((a + b) + ((c * d) / f)) + g))",
             ),
+            ("\"foo\" + \"bar\"", "(\"foo\" + \"bar\")"),
         ];
 
         for (input, expected) in tests {
@@ -758,6 +771,25 @@ return 838383;
             _ => panic!("not expression statement"),
         };
         check_boolean_literal(&stm.expression, true);
+    }
+
+    #[test]
+    fn test_string_literal_expression() {
+        let inputs = ["hello world", "foobar", ""];
+
+        for input in inputs {
+            let l = Lexer::new(format!("\"{}\"", input).as_str());
+            let mut p = Parser::new(l);
+            let program = p.parse_program();
+            check_parser_errors(&p);
+            assert_eq!(program.statements.len(), 1);
+
+            let stm = match &program.statements[0] {
+                Statement::ExpressionStatement(stm) => stm,
+                _ => panic!("not expression statement"),
+            };
+            check_literal_expression(&stm.expression, Lit::String(input));
+        }
     }
 
     fn check_boolean_literal(exp: &Expression, value: bool) {

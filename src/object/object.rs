@@ -12,6 +12,8 @@ pub enum ObjectType {
     Null,
     Error,
     Function,
+    String,
+    Builtin,
 }
 
 impl Display for ObjectType {
@@ -23,6 +25,8 @@ impl Display for ObjectType {
             ObjectType::Null => write!(f, "NULL"),
             ObjectType::Error => write!(f, "ERROR"),
             ObjectType::Function => write!(f, "FUNCTION"),
+            ObjectType::String => write!(f, "STRING"),
+            ObjectType::Builtin => write!(f, "BUILTIN"),
         }
     }
 }
@@ -35,6 +39,8 @@ pub enum Object {
     Return(ReturnValue),
     Error(Error),
     Function(Function),
+    String(StringObj),
+    Builtin(Builtin),
 }
 
 impl Display for Object {
@@ -46,6 +52,8 @@ impl Display for Object {
             Object::Return(r) => write!(f, "{}", r),
             Object::Error(e) => write!(f, "{}", e),
             Object::Function(fun) => write!(f, "{}", fun.inspect()),
+            Object::String(s) => write!(f, "{}", s.inspect()),
+            Object::Builtin(b) => write!(f, "{}", b.inspect()),
         }
     }
 }
@@ -58,6 +66,8 @@ pub fn obj_type(obj: &Object) -> ObjectType {
         Object::Return(_) => ObjectType::Return,
         Object::Error(_) => ObjectType::Error,
         Object::Function(_) => ObjectType::Function,
+        Object::String(_) => ObjectType::String,
+        Object::Builtin(_) => ObjectType::Builtin,
     }
 }
 
@@ -173,5 +183,35 @@ impl ObjectTrait for Function {
                 .join(", "),
             self.body
         )
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct StringObj {
+    pub value: String,
+}
+
+impl ObjectTrait for StringObj {
+    fn obj_type(&self) -> ObjectType {
+        ObjectType::String
+    }
+
+    fn inspect(&self) -> String {
+        format!("{}", self.value)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Builtin {
+    pub func: fn(Vec<Object>) -> Object,
+}
+
+impl ObjectTrait for Builtin {
+    fn obj_type(&self) -> ObjectType {
+        ObjectType::Builtin
+    }
+
+    fn inspect(&self) -> String {
+        "builtin function".to_string()
     }
 }

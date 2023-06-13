@@ -5,6 +5,7 @@ pub enum Token {
 
     IDENT(String),
     INT(String),
+    STRING(String),
 
     // Operators
     ASSIGN,
@@ -41,7 +42,7 @@ pub enum Token {
 impl Token {
     pub fn literal(&self) -> &str {
         match self {
-            Token::ILLEGAL(v) | Token::IDENT(v) | Token::INT(v) => v,
+            Token::ILLEGAL(v) | Token::IDENT(v) | Token::INT(v) | Token::STRING(v) => v,
             Token::EOF => "",
             Token::ASSIGN => "=",
             Token::PLUS => "+",
