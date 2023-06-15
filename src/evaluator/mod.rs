@@ -5,7 +5,7 @@ use crate::{
     },
     object::{
         environ::Environment,
-        object::{obj_type, Function, Object},
+        object::{Err, Function, Object},
     },
 };
 
@@ -29,59 +29,61 @@ pub fn eval(node: &Node, environ: &mut Environment) -> Object {
 }
 
 pub fn eval_expression(exp: &Expression, environ: &mut Environment) -> Object {
+    use Expression::*;
     match exp {
-        Expression::IntegerLiteral(x) => Object::Integer(x.value),
-        Expression::Boolean(x) => Object::Boolean(x.value),
-        Expression::StringLiteral(s) => Object::String(s.value.clone()),
-        Expression::PrefixExpression(x) => eval_prefix_expression(x, environ),
-        Expression::InfixExpression(x) => eval_infix_expression(x, environ),
-        Expression::IfExpression(x) => eval_if_expression(x, environ),
-        Expression::Identifier(x) => eval_identifier(x, environ),
-        Expression::FunctionLiteral(x) => eval_function_literal(x, environ),
-        Expression::CallExpression(x) => eval_call_expression(x, environ),
-        Expression::ArrayLiteral(x) => eval_array_literal(x, environ),
-        Expression::IndexExpression(x) => eval_index_expression(x, environ),
+        IntegerLiteral(x) => Object::Integer(x.value),
+        Boolean(x) => Object::Boolean(x.value),
+        StringLiteral(s) => Object::String(s.value.clone()),
+        PrefixExpression(x) => eval_prefix_expression(x, environ),
+        InfixExpression(x) => eval_infix_expression(x, environ),
+        IfExpression(x) => eval_if_expression(x, environ),
+        Identifier(x) => eval_identifier(x, environ),
+        FunctionLiteral(x) => eval_function_literal(x, environ),
+        CallExpression(x) => eval_call_expression(x, environ),
+        ArrayLiteral(x) => eval_array_literal(x, environ),
+        IndexExpression(x) => eval_index_expression(x, environ),
     }
 }
 
 pub fn eval_prefix_expression(exp: &PrefixExpression, environ: &mut Environment) -> Object {
+    use Object::*;
     match (exp.operator.as_str(), eval_expression(&*exp.right, environ)) {
-        (_, right @ Object::Error(_)) => right,
-        ("!", Object::Integer(0)) => Object::Boolean(true),
-        ("!", Object::Integer(_)) => Object::Boolean(false),
-        ("!", Object::Boolean(b)) => Object::Boolean(!b),
-        ("+", Object::Integer(n)) => Object::Integer(n),
-        ("-", Object::Integer(n)) => Object::Integer(-n),
-        (op, val) => Object::Error(format!("unknown operator: {}{}", op, obj_type(&val))),
+        (_, right @ Error(_)) => right,
+        ("!", Integer(0)) => Boolean(true),
+        ("!", Integer(_)) => Boolean(false),
+        ("!", Boolean(b)) => Boolean(!b),
+        ("+", Integer(n)) => Integer(n),
+        ("-", Integer(n)) => Integer(-n),
+        (op, val) => Error(Err::UnknownPrefixOperator(op.to_string(), Box::new(val))),
     }
 }
 
 pub fn eval_infix_expression(exp: &InfixExpression, environ: &mut Environment) -> Object {
+    use Object::*;
     match (
         exp.operator.as_str(),
         eval_expression(&*exp.left, environ),
         eval_expression(&*exp.right, environ),
     ) {
-        (_, left @ Object::Error(_), _) => left,
-        (_, _, right @ Object::Error(_)) => right,
-        ("+", Object::Integer(l), Object::Integer(r)) => Object::Integer(l + r),
-        ("+", Object::String(l), Object::String(r)) => Object::String(l + &r),
-        ("-", Object::Integer(l), Object::Integer(r)) => Object::Integer(l - r),
-        ("*", Object::Integer(l), Object::Integer(r)) => Object::Integer(l * r),
-        ("/", Object::Integer(l), Object::Integer(r)) => Object::Integer(l / r),
-        ("<", Object::Integer(l), Object::Integer(r)) => Object::Boolean(l < r),
-        (">", Object::Integer(l), Object::Integer(r)) => Object::Boolean(l > r),
-        ("==", Object::Integer(l), Object::Integer(r)) => Object::Boolean(l == r),
-        ("!=", Object::Integer(l), Object::Integer(r)) => Object::Boolean(l != r),
-        ("==", Object::Boolean(l), Object::Boolean(r)) => Object::Boolean(l == r),
-        ("!=", Object::Boolean(l), Object::Boolean(r)) => Object::Boolean(l != r),
-        ("==", _, _) => Object::Boolean(false),
-        ("!=", _, _) => Object::Boolean(true),
-        (_, l, r) => Object::Error(format!(
-            "unknown operator: {} {} {}",
-            obj_type(&l),
-            exp.operator,
-            obj_type(&r)
+        (_, left @ Error(_), _) => left,
+        (_, _, right @ Error(_)) => right,
+        ("+", Integer(l), Integer(r)) => Integer(l + r),
+        ("+", String(l), String(r)) => String(l + &r),
+        ("-", Integer(l), Integer(r)) => Integer(l - r),
+        ("*", Integer(l), Integer(r)) => Integer(l * r),
+        ("/", Integer(l), Integer(r)) => Integer(l / r),
+        ("<", Integer(l), Integer(r)) => Boolean(l < r),
+        (">", Integer(l), Integer(r)) => Boolean(l > r),
+        ("==", Integer(l), Integer(r)) => Boolean(l == r),
+        ("!=", Integer(l), Integer(r)) => Boolean(l != r),
+        ("==", Boolean(l), Boolean(r)) => Boolean(l == r),
+        ("!=", Boolean(l), Boolean(r)) => Boolean(l != r),
+        ("==", _, _) => Boolean(false),
+        ("!=", _, _) => Boolean(true),
+        (op, l, r) => Error(Err::UnknownInfixOperator(
+            op.to_string(),
+            Box::new(l),
+            Box::new(r),
         )),
     }
 }
@@ -103,7 +105,7 @@ pub fn eval_if_expression(exp: &IfExpression, environ: &mut Environment) -> Obje
 pub fn eval_identifier(exp: &Identifier, environ: &mut Environment) -> Object {
     match environ.get(&exp.token.literal()) {
         Some(val) => val.clone(),
-        None => Object::Error(format!("identifier not found: {}", exp.token.literal())),
+        None => Object::Error(Err::IdentifierNotFound(exp.clone())),
     }
 }
 
@@ -121,10 +123,9 @@ pub fn eval_call_expression(exp: &CallExpression, environ: &mut Environment) -> 
         Object::Error(_) => return f,
         Object::Function(f) => {
             if f.parameters.len() != exp.arguments.len() {
-                return Object::Error(format!(
-                    "wrong number of arguments: want={}, got={}",
+                return Object::Error(Err::WrongArgumentsCount(
                     f.parameters.len(),
-                    exp.arguments.len()
+                    exp.arguments.len(),
                 ));
             }
 
@@ -148,7 +149,7 @@ pub fn eval_call_expression(exp: &CallExpression, environ: &mut Environment) -> 
                 Ok(args) => b(args),
             }
         }
-        _ => Object::Error(format!("not a function: {}", obj_type(&f))),
+        _ => Object::Error(Err::NotAFunction(Box::new(f))),
     }
 }
 
@@ -171,12 +172,9 @@ pub fn eval_index_expression(exp: &IndexExpression, environ: &mut Environment) -
                 }
                 a[i as usize].clone()
             }
-            _ => Object::Error(format!(
-                "index operator not supported: {}",
-                obj_type(&index)
-            )),
+            _ => Object::Error(Err::IndexNotInteger(Box::new(index))),
         },
-        _ => Object::Error(format!("index operator not supported: {}", obj_type(&left))),
+        _ => Object::Error(Err::UnsupportedIndexOperator(Box::new(left))),
     }
 }
 
@@ -536,7 +534,7 @@ if (10 > 1) {
 
     fn check_error_object(obj: &Object, expected: &str, input: &str) {
         match obj {
-            Object::Error(err) => assert_eq!(err, expected, "input was: {}", input),
+            Object::Error(err) => assert_eq!(err.to_string(), expected, "input was: {}", input),
             _ => assert!(false, "object is not error, input was: {}", input),
         }
     }

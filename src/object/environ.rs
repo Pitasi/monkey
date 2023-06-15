@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::object::{obj_type, Object};
+use super::object::{Err, Object, ObjectType};
 
 #[derive(Debug, Clone)]
 pub struct Environment {
@@ -54,27 +54,22 @@ fn get_builtin(name: &str) -> Option<&'static Object> {
     match name {
         "len" => Some(&Object::Builtin(|args| {
             if args.len() != 1 {
-                return Object::Error(format!(
-                    "wrong number of arguments. got={}, want=1",
-                    args.len()
-                ));
+                return Object::Error(Err::WrongArgumentsCount(1, args.len()));
             }
 
             match &args[0] {
                 Object::String(s) => Object::Integer(s.len() as i64),
                 Object::Array(a) => Object::Integer(a.len() as i64),
-                _ => Object::Error(format!(
-                    "argument to `len` not supported, got {}",
-                    obj_type(&args[0])
+                _ => Object::Error(Err::WrongArgumentType(
+                    "len".to_string(),
+                    ObjectType::Array,
+                    Box::new(args[0].clone()),
                 )),
             }
         })),
         "first" => Some(&Object::Builtin(|args| {
             if args.len() != 1 {
-                return Object::Error(format!(
-                    "wrong number of arguments. got={}, want=1",
-                    args.len()
-                ));
+                return Object::Error(Err::WrongArgumentsCount(1, args.len()));
             }
 
             match &args[0] {
@@ -84,18 +79,16 @@ fn get_builtin(name: &str) -> Option<&'static Object> {
                     }
                     Object::Null
                 }
-                _ => Object::Error(format!(
-                    "argument to `first` must be ARRAY, got {}",
-                    obj_type(&args[0])
+                _ => Object::Error(Err::WrongArgumentType(
+                    "first".to_string(),
+                    ObjectType::Array,
+                    Box::new(args[0].clone()),
                 )),
             }
         })),
         "last" => Some(&Object::Builtin(|args| {
             if args.len() != 1 {
-                return Object::Error(format!(
-                    "wrong number of arguments. got={}, want=1",
-                    args.len()
-                ));
+                return Object::Error(Err::WrongArgumentsCount(1, args.len()));
             }
 
             match &args[0] {
@@ -105,18 +98,16 @@ fn get_builtin(name: &str) -> Option<&'static Object> {
                     }
                     Object::Null
                 }
-                _ => Object::Error(format!(
-                    "argument to `last` must be ARRAY, got {}",
-                    obj_type(&args[0])
+                _ => Object::Error(Err::WrongArgumentType(
+                    "last".to_string(),
+                    ObjectType::Array,
+                    Box::new(args[0].clone()),
                 )),
             }
         })),
         "rest" => Some(&Object::Builtin(|args| {
             if args.len() != 1 {
-                return Object::Error(format!(
-                    "wrong number of arguments. got={}, want=1",
-                    args.len()
-                ));
+                return Object::Error(Err::WrongArgumentsCount(1, args.len()));
             }
 
             match &args[0] {
@@ -127,18 +118,16 @@ fn get_builtin(name: &str) -> Option<&'static Object> {
                     let new_elements = a[1..].to_vec();
                     Object::Array(new_elements)
                 }
-                _ => Object::Error(format!(
-                    "argument to `last` must be ARRAY, got {}",
-                    obj_type(&args[0])
+                _ => Object::Error(Err::WrongArgumentType(
+                    "last".to_string(),
+                    ObjectType::Array,
+                    Box::new(args[0].clone()),
                 )),
             }
         })),
         "push" => Some(&Object::Builtin(|args| {
             if args.len() != 2 {
-                return Object::Error(format!(
-                    "wrong number of arguments. got={}, want=2",
-                    args.len()
-                ));
+                return Object::Error(Err::WrongArgumentsCount(2, args.len()));
             }
 
             match &args[0] {
@@ -147,9 +136,10 @@ fn get_builtin(name: &str) -> Option<&'static Object> {
                     new_elements.push(args[1].clone());
                     Object::Array(new_elements)
                 }
-                _ => Object::Error(format!(
-                    "argument to `last` must be ARRAY, got {}",
-                    obj_type(&args[0])
+                _ => Object::Error(Err::WrongArgumentType(
+                    "push".to_string(),
+                    ObjectType::Array,
+                    Box::new(args[0].clone()),
                 )),
             }
         })),

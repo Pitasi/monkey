@@ -4,7 +4,7 @@ use crate::ast::{BlockStatement, Identifier};
 
 use super::environ::Environment;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ObjectType {
     Return,
     Integer,
@@ -39,23 +39,73 @@ pub enum Object {
     Boolean(bool),
     Null,
     Return(Box<Object>),
-    Error(String),
     Function(Function),
     String(String),
     Builtin(fn(Vec<Object>) -> Object),
     Array(Vec<Object>),
+    Error(Err),
+}
+
+#[derive(Clone, Debug)]
+pub enum Err {
+    UnknownInfixOperator(String, Box<Object>, Box<Object>),
+    UnknownPrefixOperator(String, Box<Object>),
+    UnsupportedIndexOperator(Box<Object>),
+    IndexNotInteger(Box<Object>),
+    WrongArgumentsCount(usize, usize),
+    NotAFunction(Box<Object>),
+    IdentifierNotFound(Identifier),
+    WrongArgumentType(String, ObjectType, Box<Object>),
+}
+
+impl<'a> Display for Err {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Err::UnknownPrefixOperator(op, val) => {
+                write!(f, "unknown operator: {}{}", op, obj_type(&val))
+            }
+            Err::UnknownInfixOperator(op, l, r) => write!(
+                f,
+                "unknown operator: {} {} {}",
+                obj_type(&l),
+                op,
+                obj_type(&r)
+            ),
+            Err::UnsupportedIndexOperator(obj) => {
+                write!(f, "index operator not supported: {}", obj_type(&obj))
+            }
+            Err::WrongArgumentsCount(expected, got) => {
+                write!(
+                    f,
+                    "wrong number of arguments: expected {}, got {}",
+                    expected, got
+                )
+            }
+            Err::NotAFunction(obj) => write!(f, "not a function: {}", obj_type(&obj)),
+            Err::IdentifierNotFound(id) => write!(f, "identifier not found: {}", id),
+            Err::IndexNotInteger(obj) => write!(f, "index not integer: {}", obj_type(&obj)),
+            Err::WrongArgumentType(name, expected, got) => write!(
+                f,
+                "wrong argument type for {}: expected {}, got {}",
+                name,
+                expected,
+                obj_type(&got)
+            ),
+        }
+    }
 }
 
 impl Display for Object {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use Object::*;
         match self {
-            Object::Integer(i) => write!(f, "{}", i),
-            Object::Boolean(b) => write!(f, "{}", b),
-            Object::String(s) => write!(f, "{}", s),
-            Object::Null => write!(f, "null"),
-            Object::Return(r) => write!(f, "{}", r),
-            Object::Error(e) => write!(f, "{}", e),
-            Object::Function(fun) => write!(
+            Integer(i) => write!(f, "{}", i),
+            Boolean(b) => write!(f, "{}", b),
+            String(s) => write!(f, "{}", s),
+            Null => write!(f, "null"),
+            Return(r) => write!(f, "{}", r),
+            Error(e) => write!(f, "{}", e),
+            Function(fun) => write!(
                 f,
                 "fn({}) {{\n{}\n}}",
                 fun.parameters
@@ -65,8 +115,8 @@ impl Display for Object {
                     .join(", "),
                 fun.body
             ),
-            Object::Builtin(_) => write!(f, "<builtin function>"),
-            Object::Array(a) => write!(
+            Builtin(_) => write!(f, "<builtin function>"),
+            Array(a) => write!(
                 f,
                 "[{}]",
                 a.iter()
@@ -79,16 +129,17 @@ impl Display for Object {
 }
 
 pub fn obj_type(obj: &Object) -> ObjectType {
+    use Object::*;
     match obj {
-        Object::Integer(_) => ObjectType::Integer,
-        Object::Boolean(_) => ObjectType::Boolean,
-        Object::Null => ObjectType::Null,
-        Object::Return(_) => ObjectType::Return,
-        Object::Error(_) => ObjectType::Error,
-        Object::Function(_) => ObjectType::Function,
-        Object::String(_) => ObjectType::String,
-        Object::Builtin(_) => ObjectType::Builtin,
-        Object::Array(_) => ObjectType::Array,
+        Integer(_) => ObjectType::Integer,
+        Boolean(_) => ObjectType::Boolean,
+        Null => ObjectType::Null,
+        Return(_) => ObjectType::Return,
+        Error(_) => ObjectType::Error,
+        Function(_) => ObjectType::Function,
+        String(_) => ObjectType::String,
+        Builtin(_) => ObjectType::Builtin,
+        Array(_) => ObjectType::Array,
     }
 }
 
@@ -108,11 +159,6 @@ pub struct Null {}
 #[derive(Clone, Debug)]
 pub struct ReturnValue {
     pub value: Box<Object>,
-}
-
-#[derive(Clone, Debug)]
-pub struct Error {
-    pub message: String,
 }
 
 #[derive(Clone, Debug)]
