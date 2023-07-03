@@ -1,10 +1,13 @@
 use std::fmt::Display;
 
-use crate::ast::{BlockStatement, Identifier};
+use crate::{
+    ast::{BlockStatement, Identifier},
+    map::InefficientMap,
+};
 
 use super::environ::Environment;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ObjectType {
     Return,
     Integer,
@@ -15,6 +18,7 @@ pub enum ObjectType {
     String,
     Builtin,
     Array,
+    HashMap,
 }
 
 impl Display for ObjectType {
@@ -29,11 +33,12 @@ impl Display for ObjectType {
             ObjectType::String => write!(f, "STRING"),
             ObjectType::Builtin => write!(f, "BUILTIN"),
             ObjectType::Array => write!(f, "ARRAY"),
+            ObjectType::HashMap => write!(f, "HASHMAP"),
         }
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Object {
     Integer(i64),
     Boolean(bool),
@@ -44,9 +49,10 @@ pub enum Object {
     Builtin(fn(Vec<Object>) -> Object),
     Array(Vec<Object>),
     Error(Err),
+    HashMap(InefficientMap<Object, Object>),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Err {
     UnknownInfixOperator(String, Box<Object>, Box<Object>),
     UnknownPrefixOperator(String, Box<Object>),
@@ -124,6 +130,14 @@ impl Display for Object {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
+            HashMap(h) => write!(
+                f,
+                "{{ {} }}",
+                h.iter()
+                    .map(|(k, v)| format!("{}: {}", k, v))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
         }
     }
 }
@@ -140,6 +154,7 @@ pub fn obj_type(obj: &Object) -> ObjectType {
         String(_) => ObjectType::String,
         Builtin(_) => ObjectType::Builtin,
         Array(_) => ObjectType::Array,
+        HashMap(_) => ObjectType::HashMap,
     }
 }
 
@@ -161,7 +176,7 @@ pub struct ReturnValue {
     pub value: Box<Object>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Function {
     pub parameters: Vec<Identifier>,
     pub body: BlockStatement,

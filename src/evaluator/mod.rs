@@ -1,8 +1,9 @@
 use crate::{
     ast::{
-        ArrayLiteral, CallExpression, Expression, FunctionLiteral, Identifier, IfExpression,
-        IndexExpression, InfixExpression, Node, PrefixExpression, Statement,
+        ArrayLiteral, CallExpression, Expression, FunctionLiteral, HashLiteral, Identifier,
+        IfExpression, IndexExpression, InfixExpression, Node, PrefixExpression, Statement,
     },
+    map::InefficientMap,
     object::{
         environ::Environment,
         object::{Err, Function, Object},
@@ -42,6 +43,7 @@ pub fn eval_expression(exp: &Expression, environ: &mut Environment) -> Object {
         CallExpression(x) => eval_call_expression(x, environ),
         ArrayLiteral(x) => eval_array_literal(x, environ),
         IndexExpression(x) => eval_index_expression(x, environ),
+        HashLiteral(x) => eval_hash_literal(x, environ),
     }
 }
 
@@ -174,8 +176,24 @@ pub fn eval_index_expression(exp: &IndexExpression, environ: &mut Environment) -
             }
             _ => Object::Error(Err::IndexNotInteger(Box::new(index))),
         },
+        Object::HashMap(m) => m.get(&index).unwrap_or(&Object::Null).clone(),
         _ => Object::Error(Err::UnsupportedIndexOperator(Box::new(left))),
     }
+}
+
+pub fn eval_hash_literal(exp: &HashLiteral, environ: &mut Environment) -> Object {
+    let mut m = InefficientMap::new();
+    exp.pairs
+        .iter()
+        .map(|(k, v)| (eval_expression(k, environ), eval_expression(v, environ)))
+        .for_each(|(k, v)| match k {
+            Object::Error(_) => (),
+            _ => {
+                m.insert(k, v);
+            }
+        });
+
+    Object::HashMap(m)
 }
 
 pub fn eval_expressions(
@@ -234,6 +252,8 @@ pub fn eval_statement(stmt: &Statement, environ: &mut Environment) -> Object {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use crate::{lexer::Lexer, parser::Parser};
 
     use super::*;
@@ -488,6 +508,22 @@ if (10 > 1) {
         }
     }
 
+    #[test]
+    fn test_eval_hashmap_result() {
+        let inputs = [
+            ("{}", HashMap::new()),
+            ("{\"one\": 1}", HashMap::from([("one".to_string(), 1)])),
+            (
+                "{\"one\": 1, \"two\": 2}",
+                HashMap::from([("one".to_string(), 1), ("two".to_string(), 2)]),
+            ),
+        ];
+        for (input, expected) in inputs {
+            let evaluated = test_eval(input);
+            check_hashmap_object(&evaluated, expected, input);
+        }
+    }
+
     fn test_eval(input: &str) -> Object {
         let l = Lexer::new(input);
         let node = Parser::new(l).parse_program();
@@ -545,6 +581,19 @@ if (10 > 1) {
                 assert_eq!(arr.len(), expected.len());
                 for (i, el) in arr.iter().enumerate() {
                     check_integer_object(el, expected[i], input);
+                }
+            }
+            _ => assert!(false, "object is not an array, input was: {}", input),
+        }
+    }
+
+    fn check_hashmap_object(obj: &Object, expected: HashMap<String, i64>, input: &str) {
+        match obj {
+            Object::HashMap(map) => {
+                assert_eq!(map.len(), expected.len());
+                for (k, expected_v) in expected.iter() {
+                    let v = map.get(&Object::String(k.to_string())).unwrap();
+                    check_integer_object(v, *expected_v, input);
                 }
             }
             _ => assert!(false, "object is not an array, input was: {}", input),

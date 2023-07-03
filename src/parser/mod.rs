@@ -3,11 +3,12 @@ use std::rc::Rc;
 use crate::{
     ast::{
         ArrayLiteral, BlockStatement, Boolean, CallExpression, Expression, ExpressionStatement,
-        FunctionLiteral, Identifier, IfExpression, IndexExpression, InfixExpression,
+        FunctionLiteral, HashLiteral, Identifier, IfExpression, IndexExpression, InfixExpression,
         IntegerLiteral, LetStatement, PrefixExpression, Program, ReturnStatement, Statement,
         StringLiteral,
     },
     lexer::Lexer,
+    map::InefficientMap,
     token::Token,
 };
 
@@ -190,6 +191,7 @@ impl Parser {
             Token::FUNCTION => self.parse_function_expression(),
             Token::STRING(_) => self.parse_string_literal_expression(),
             Token::LBRACKET => self.parse_array_literal_expression(),
+            Token::LBRACE => self.parse_hash_literal_expression(),
             _ => None,
         }
     }
@@ -413,6 +415,42 @@ impl Parser {
         Some(Expression::ArrayLiteral(ArrayLiteral { token, elements }))
     }
 
+    fn parse_hash_literal_expression(&mut self) -> Option<Expression> {
+        let token = self.cur_token.clone(); // {
+        if *self.peek_token == Token::RBRACE {
+            self.next_token();
+            return Some(Expression::HashLiteral(HashLiteral {
+                token,
+                pairs: InefficientMap::new(),
+            }));
+        }
+
+        self.next_token();
+        let mut pairs = InefficientMap::new();
+
+        loop {
+            let key = self.parse_expression(Precedence::LOWEST)?;
+            if !self.expect_peek(Token::COLON) {
+                return None;
+            }
+            self.next_token();
+            let value = self.parse_expression(Precedence::LOWEST)?;
+            pairs.insert(key, value);
+            self.next_token();
+
+            if *self.cur_token == Token::RBRACE {
+                break;
+            }
+
+            if *self.cur_token != Token::COMMA {
+                return None;
+            }
+            self.next_token();
+        }
+
+        Some(Expression::HashLiteral(HashLiteral { token, pairs }))
+    }
+
     fn parse_expression_list(&mut self, end_token: Token) -> Option<Vec<Expression>> {
         let mut identifiers = Vec::new();
         if *self.peek_token == end_token {
@@ -506,7 +544,7 @@ mod tests {
     use std::rc::Rc;
 
     use crate::{
-        ast::{Expression, Identifier, LetStatement, Program, Statement},
+        ast::{Expression, Identifier, LetStatement, Program, Statement, StringLiteral},
         lexer::Lexer,
         token::Token,
     };
@@ -1064,5 +1102,40 @@ return 838383;
         check_integer_literal(&exp.elements[0], 1);
         check_infix_expression(&exp.elements[1], Lit::Int(2), "*", Lit::Int(2));
         check_infix_expression(&exp.elements[2], Lit::Int(3), "+", Lit::Int(3));
+    }
+
+    #[test]
+    fn test_parsing_hash_literals_string_keys() {
+        let input = "{\"one\": 1, \"two\": 2, \"three\": 3}";
+        let l = Lexer::new(input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+        assert_eq!(program.statements.len(), 1);
+
+        let stm = match &program.statements[0] {
+            Statement::ExpressionStatement(stm) => stm,
+            _ => panic!("not expression statement"),
+        };
+        let exp = match &stm.expression {
+            Expression::HashLiteral(exp) => exp,
+            _ => panic!("not hash literal"),
+        };
+
+        assert_eq!(exp.pairs.len(), 3);
+        let check_val = |k: &str, expected: i64| {
+            let v = exp
+                .pairs
+                .get(&Expression::StringLiteral(StringLiteral {
+                    token: Rc::new(Token::STRING(k.to_string())),
+                    value: k.to_string(),
+                }))
+                .unwrap();
+            check_integer_literal(v, expected);
+        };
+
+        check_val("one", 1);
+        check_val("two", 2);
+        check_val("three", 3);
     }
 }

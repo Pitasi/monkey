@@ -1,6 +1,6 @@
 use std::{any::Any, fmt::Display, rc::Rc};
 
-use crate::token::Token;
+use crate::{map::InefficientMap, token::Token};
 
 pub trait AsAny: 'static {
     fn as_any(&self) -> &dyn Any;
@@ -18,7 +18,7 @@ pub enum Node {
     Expression(Expression),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     LetStatement(LetStatement),
     ReturnStatement(ReturnStatement),
@@ -47,7 +47,7 @@ impl Display for Statement {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     InfixExpression(InfixExpression),
     IntegerLiteral(IntegerLiteral),
@@ -60,6 +60,7 @@ pub enum Expression {
     StringLiteral(StringLiteral),
     ArrayLiteral(ArrayLiteral),
     IndexExpression(IndexExpression),
+    HashLiteral(HashLiteral),
 }
 
 impl Expression {
@@ -76,6 +77,7 @@ impl Expression {
             Expression::StringLiteral(x) => x.token_literal(),
             Expression::ArrayLiteral(x) => x.token_literal(),
             Expression::IndexExpression(x) => x.token_literal(),
+            Expression::HashLiteral(x) => x.token_literal(),
         }
     }
 }
@@ -94,6 +96,7 @@ impl Display for Expression {
             Expression::StringLiteral(x) => write!(f, "{}", x),
             Expression::ArrayLiteral(x) => write!(f, "{}", x),
             Expression::IndexExpression(x) => write!(f, "{}", x),
+            Expression::HashLiteral(x) => write!(f, "{}", x),
         }
     }
 }
@@ -124,7 +127,7 @@ impl Display for Program {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct LetStatement {
     pub token: Rc<Token>,
     pub name: Identifier,
@@ -149,7 +152,7 @@ impl Display for LetStatement {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Identifier {
     pub token: Rc<Token>,
 }
@@ -166,7 +169,7 @@ impl NodeTrait for Identifier {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ReturnStatement {
     pub token: Rc<Token>,
     pub return_value: Option<Expression>,
@@ -187,7 +190,7 @@ impl Display for ReturnStatement {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ExpressionStatement {
     pub token: Rc<Token>,
     pub expression: Expression,
@@ -205,7 +208,7 @@ impl NodeTrait for ExpressionStatement {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct IntegerLiteral {
     pub token: Rc<Token>,
     pub value: i64,
@@ -223,7 +226,7 @@ impl NodeTrait for IntegerLiteral {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PrefixExpression {
     pub token: Rc<Token>,
     pub operator: String,
@@ -242,7 +245,7 @@ impl Display for PrefixExpression {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct InfixExpression {
     pub token: Rc<Token>,
     pub left: Box<Expression>,
@@ -262,7 +265,7 @@ impl Display for InfixExpression {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Boolean {
     pub token: Rc<Token>,
     pub value: bool,
@@ -280,7 +283,7 @@ impl Display for Boolean {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct IfExpression {
     pub token: Rc<Token>,
     pub condition: Box<Expression>,
@@ -304,7 +307,7 @@ impl Display for IfExpression {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BlockStatement {
     pub token: Rc<Token>,
     pub statements: Vec<Statement>,
@@ -325,7 +328,7 @@ impl Display for BlockStatement {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FunctionLiteral {
     pub token: Rc<Token>,
     pub parameters: Vec<Identifier>,
@@ -353,7 +356,7 @@ impl Display for FunctionLiteral {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CallExpression {
     pub token: Rc<Token>,
     pub function: Box<Expression>,
@@ -381,7 +384,7 @@ impl Display for CallExpression {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct StringLiteral {
     pub token: Rc<Token>,
     pub value: String,
@@ -399,7 +402,7 @@ impl Display for StringLiteral {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ArrayLiteral {
     pub token: Rc<Token>,
     pub elements: Vec<Expression>,
@@ -425,7 +428,7 @@ impl Display for ArrayLiteral {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct IndexExpression {
     pub token: Rc<Token>,
     pub left: Box<Expression>,
@@ -441,5 +444,31 @@ impl NodeTrait for IndexExpression {
 impl Display for IndexExpression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "({}[{}])", self.left, self.index)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct HashLiteral {
+    pub token: Rc<Token>,
+    pub pairs: InefficientMap<Expression, Expression>,
+}
+
+impl NodeTrait for HashLiteral {
+    fn token_literal(&self) -> &str {
+        self.token.literal()
+    }
+}
+
+impl Display for HashLiteral {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{{{}}}",
+            self.pairs
+                .iter()
+                .map(|(k, v)| format!("{}: {}", k, v))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     }
 }
